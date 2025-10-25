@@ -211,29 +211,41 @@
     const ctx = $("chart").getContext('2d');
     let chart;
 
-    function buildChart(labels, balances) {
+    function buildChart(labels, balances, interests) {
       if (chart) chart.destroy();
       chart = new Chart(ctx, {
         type: 'line',
         data: {
           labels,
-          datasets: [{
-            label: 'Projected Balance',
-            data: balances,
-            borderWidth: 2.5,
-            pointRadius: 0,
-            tension: 0.18,
-          }]
+          datasets: [
+            {
+              label: 'Projected Balance',
+              data: balances,
+              yAxisID: 'y',
+              borderWidth: 2.5,
+              pointRadius: 0,
+              tension: 0.18,
+            },
+            {
+              label: 'Monthly Interest',
+              data: interests,
+              yAxisID: 'y1',
+              borderDash: [6, 4],
+              borderWidth: 2,
+              pointRadius: 0,
+              tension: 0.18,
+            }
+          ]
         },
         options: {
           maintainAspectRatio: false,
           responsive: true,
           animation: { duration: 500 },
           plugins: {
-            legend: { display: false },
+            legend: { display: true },
             tooltip: {
               callbacks: {
-                label: (ctx) => ` ${fmtCurrency(ctx.parsed.y)}`
+                label: (ctx) => `${ctx.dataset.label}: ${fmtCurrency(ctx.parsed.y)}`
               }
             },
             title: {
@@ -251,6 +263,11 @@
                 color: '#9ca3af',
                 callback: (v) => fmtCurrency(v)
               }
+            },
+            y1: {
+              position: 'right',
+              grid: { drawOnChartArea: false },
+              ticks: { color: '#9ca3af', callback: (v) => fmtCurrency(v) }
             }
           }
         }
@@ -263,8 +280,8 @@
       const payment = clamp($("payment").value, 0, 1e8);
       const horizon = clamp($("horizon").value, 1, 600);
 
-      const { labels, balances, totalInterest, paidOffAt, payoffDate, unpayable } = simulate(balance, apr, payment, 600, horizon);
-      buildChart(labels, balances);
+      const { labels, balances, interests, totalInterest, paidOffAt, payoffDate, unpayable } = simulate(balance, apr, payment, 600, horizon);
+      buildChart(labels, balances, interests);
 
       // Metrics
       $("mInterest").textContent = fmtCurrency(totalInterest);
