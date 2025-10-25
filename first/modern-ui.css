@@ -1,0 +1,161 @@
+/* 
+Credit Card Balance Predictor — Modern Skin (no logic changes)
+Scope: apply to a wrapper element with class .ccbp-theme
+Aesthetic: clean dark, soft glass, large type, subtle motion
+*/
+@layer reset, tokens, base, components, utilities;
+
+/* Design tokens */
+@layer tokens {
+  .ccbp-theme {
+    --bg:          #0b1220;
+    --bg-2:        #0d1528;
+    --panel:       #101b34;
+    --card:        #121f3a;
+    --muted:       #93a0b8;
+    --muted-2:     #7d8aa3;
+    --text:        #e7eefc;
+    --heading:     #f1f6ff;
+    --accent:      #4fd5ff;  /* Projected Balance */
+    --accent-2:    #ffb770;  /* Monthly Interest  */
+    --accent-3:    #b6c3ff;  /* Extra Payment     */
+    --success:     #38d399;
+    --danger:      #ff6b6b;
+    --ring:        0 0 0 6px color-mix(in oklab, var(--accent) 20%, transparent);
+    --radius-xl:   18px;
+    --radius-lg:   14px;
+    --radius-md:   12px;
+    --shadow-1:    0 10px 30px rgba(0,0,0,.35);
+    --shadow-2:    0 6px 18px rgba(0,0,0,.28);
+  }
+}
+
+/* Minimal reset (scoped) */
+@layer reset {
+  .ccbp-theme, .ccbp-theme * { box-sizing: border-box; }
+  .ccbp-theme input, .ccbp-theme button, .ccbp-theme select, .ccbp-theme textarea {
+    font: inherit; color: inherit; background: transparent; border: none; outline: none;
+  }
+}
+
+/* Base layout & typography */
+@layer base {
+  .ccbp-theme {
+    --grid-gap: 24px;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    color: var(--text);
+    background:
+      radial-gradient(1200px 600px at 10% 0%, #0f2446 0%, transparent 60%),
+      radial-gradient(900px 600px at 100% 100%, #18284d 0%, transparent 55%),
+      linear-gradient(#0b1220, #0b1220);
+    min-height: 100vh;
+  }
+
+  .ccbp-theme .app-grid {
+    display: grid; grid-template-columns: 360px 1fr; gap: var(--grid-gap); align-items: start;
+    padding: 28px; max-width: 1300px; margin: 0 auto;
+  }
+
+  @media (max-width: 1100px){
+    .ccbp-theme .app-grid { grid-template-columns: 1fr; }
+  }
+
+  .ccbp-theme h1, .ccbp-theme h2, .ccbp-theme h3 { color: var(--heading); letter-spacing: .2px; }
+  .ccbp-theme h1 { font-weight: 700; font-size: 22px; }
+  .ccbp-theme h2 { font-weight: 600; font-size: 16px; opacity: .92; }
+}
+
+/* Components */
+@layer components {
+  /* Panels & cards */
+  .ccbp-theme .panel, .ccbp-theme .card, .ccbp-theme .chart-card {
+    background: color-mix(in oklab, var(--card) 88%, transparent);
+    border: 1px solid color-mix(in oklab, #ffffff 6%, transparent);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-2);
+    backdrop-filter: blur(6px);
+  }
+
+  .ccbp-theme .panel { padding: 18px; }
+  .ccbp-theme .card  { padding: 16px; }
+
+  /* Field group */
+  .ccbp-theme .field { display: grid; gap: 8px; margin-bottom: 14px; }
+  .ccbp-theme .field label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+
+  .ccbp-theme .input, .ccbp-theme .select {
+    border-radius: 12px;
+    border: 1px solid color-mix(in oklab, #fff 10%, transparent);
+    padding: 12px 12px;
+    background: linear-gradient(180deg, color-mix(in oklab, var(--panel) 88%, transparent), color-mix(in oklab, var(--panel) 96%, #000 0%));
+    transition: border-color .2s ease, box-shadow .2s ease, transform .02s ease;
+  }
+  .ccbp-theme .input:focus, .ccbp-theme .select:focus, .ccbp-theme .input:focus-visible {
+    border-color: color-mix(in oklab, var(--accent) 70%, #fff 0%);
+    box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 55%, transparent), var(--ring);
+  }
+  .ccbp-theme .input[readonly] { opacity: .85; }
+
+  /* Inline group (date + amount + button) */
+  .ccbp-theme .inline { display: grid; grid-template-columns: 1fr 120px 110px; gap: 10px; }
+  @media (max-width: 480px){ .ccbp-theme .inline { grid-template-columns: 1fr; } }
+
+  /* Buttons */
+  .ccbp-theme .btn {
+    --btn-bg: linear-gradient(180deg, color-mix(in oklab, var(--panel) 80%, transparent), color-mix(in oklab, var(--panel) 98%, #000 0%));
+    --btn-brd: color-mix(in oklab, #ffffff 9%, transparent);
+    --btn-fg: var(--text);
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    height: 38px; padding: 0 14px; border-radius: 12px;
+    border: 1px solid var(--btn-brd); color: var(--btn-fg); background: var(--btn-bg);
+    cursor: pointer; user-select: none; white-space: nowrap; transition: transform .06s ease, box-shadow .2s ease, border-color .2s ease;
+  }
+  .ccbp-theme .btn:hover  { box-shadow: 0 6px 18px rgba(0,0,0,.25); }
+  .ccbp-theme .btn:active { transform: translateY(1px); }
+  .ccbp-theme .btn:focus-visible { box-shadow: var(--ring); }
+
+  .ccbp-theme .btn-primary {
+    --btn-bg: linear-gradient(180deg, color-mix(in oklab, var(--accent) 35%, #123), color-mix(in oklab, var(--accent) 12%, #0a1426));
+    --btn-brd: color-mix(in oklab, var(--accent) 55%, #1d2d48);
+  }
+
+  .ccbp-theme .btn-ghost {
+    --btn-bg: transparent; --btn-brd: color-mix(in oklab, #fff 12%, transparent);
+  }
+
+  .ccbp-theme .btn-warning { --btn-bg: linear-gradient(180deg, color-mix(in oklab, var(--accent-2) 30%, #241205), #0e0b06); --btn-brd: color-mix(in oklab, var(--accent-2) 60%, #2a1b0a); }
+
+  /* Stat cards */
+  .ccbp-theme .stats { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
+  .ccbp-theme .stat {
+    border-radius: var(--radius-lg); padding: 14px; background: color-mix(in oklab, var(--panel) 86%, transparent);
+    border: 1px solid color-mix(in oklab, #fff 7%, transparent);
+  }
+  .ccbp-theme .stat .label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .ccbp-theme .stat .value { font-size: 20px; font-weight: 700; margin-top: 6px; letter-spacing: .2px; }
+  .ccbp-theme .stat.success .value { color: var(--success); }
+
+  /* Badges */
+  .ccbp-theme .badge { display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px; font-weight:600; font-size:12px; background: color-mix(in oklab, var(--panel) 82%, transparent); border: 1px solid color-mix(in oklab, #fff 10%, transparent); color: var(--muted); }
+  .ccbp-theme .badge .dot { width:8px; height:8px; border-radius:999px; background: var(--success); box-shadow: 0 0 0 3px color-mix(in oklab, var(--success) 25%, transparent); }
+
+  /* Chart container */
+  .ccbp-theme .chart-card { padding: 16px 18px 10px; position: relative; }
+  .ccbp-theme .chart-card .chart-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--muted); }
+  .ccbp-theme .chart-card .legend { display:flex; gap:14px; flex-wrap:wrap; margin-bottom: 10px; }
+  .ccbp-theme .chip { display:inline-flex; align-items:center; gap:8px; font-size:12px; color: var(--muted); }
+  .ccbp-theme .chip .swatch { width:14px; height:8px; border-radius: 4px; }
+  .ccbp-theme .chip .swatch.accent   { background: var(--accent); }
+  .ccbp-theme .chip .swatch.accent-2 { background: var(--accent-2); }
+  .ccbp-theme .chip .swatch.accent-3 { background: var(--accent-3); }
+
+  /* Footer tip */
+  .ccbp-theme .tip { color: var(--muted-2); font-size: 12px; margin-top: 10px; }
+}
+
+/* Utilities */
+@layer utilities {
+  .ccbp-theme .stack { display: grid; gap: 16px; }
+  .ccbp-theme .row   { display: flex; gap: 10px; flex-wrap: wrap; }
+  .ccbp-theme .space { height: 8px; }
+}

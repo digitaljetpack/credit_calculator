@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Credit Card Balance Predictor — Modern UI</title>
+  <link rel="stylesheet" href="./modern-ui.css" />
+  <style>
+    /* Small helper so the demo looks nice if tokens are unsupported */
+    body { margin:0; background:#0b1220; }
+  </style>
+</head>
+<body>
+<div class="ccbp-theme">
+  <div class="app-grid">
+    <!-- Sidebar Controls -->
+    <aside class="panel stack">
+      <h1>Credit Card Balance Predictor</h1>
+
+      <div class="field">
+        <label for="starting-balance">Starting Balance ($)</label>
+        <input id="starting-balance" class="input" type="number" step="0.01" value="9271" />
+      </div>
+
+      <div class="row">
+        <div class="field" style="flex:1; min-width:120px">
+          <label for="apr">APR (%)</label>
+          <input id="apr" class="input" type="number" step="0.01" value="25" />
+        </div>
+        <div class="field" style="flex:1; min-width:160px">
+          <label for="monthly-payment">Monthly Payment ($)</label>
+          <input id="monthly-payment" class="input" type="number" step="0.01" value="300" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="horizon">Projection Horizon (months)</label>
+        <input id="horizon" class="input" type="number" step="1" value="53" />
+      </div>
+
+      <div class="row">
+        <button id="project-btn" class="btn btn-primary">Project</button>
+        <button id="fullscreen-btn" class="btn">Fullscreen Chart</button>
+        <button id="export-btn" class="btn btn-ghost">Export CSV</button>
+        <button id="reset-btn" class="btn btn-ghost">Reset</button>
+      </div>
+
+      <div class="space"></div>
+      <h2>One-time extra payments</h2>
+
+      <div class="inline">
+        <input id="extra-date" class="input" type="date" />
+        <input id="extra-amount" class="input" type="number" step="0.01" placeholder="$" />
+        <button id="add-extra" class="btn">Add Event</button>
+      </div>
+
+      <div id="extras-list" class="stack"></div>
+
+      <div class="stats">
+        <div class="stat" id="stat-payoff">
+          <div class="label">Estimated Payoff</div>
+          <div class="value" id="payoff-text">—</div>
+        </div>
+        <div class="stat" id="stat-interest">
+          <div class="label">Total Interest</div>
+          <div class="value" id="total-interest">$0.00</div>
+        </div>
+      </div>
+
+      <div class="row">
+        <span id="status-badge" class="badge"><span class="dot"></span> Status</span>
+      </div>
+
+      <div class="card">
+        <div class="label" style="font-size:12px;text-transform:uppercase; letter-spacing:.06em; color:var(--muted)">
+          Assumption
+        </div>
+        <div style="margin-top:6px;color:var(--muted-2);font-size:14px;line-height:1.3">
+          Monthly compounding; interest segments within a month if an extra payment has a date.
+        </div>
+      </div>
+    </aside>
+
+    <!-- Chart Section -->
+    <section class="chart-card">
+      <div class="chart-title">Credit Card Balance Projection</div>
+      <div class="legend">
+        <span class="chip"><span class="swatch accent"></span>Projected Balance</span>
+        <span class="chip"><span class="swatch accent-2"></span>Monthly Interest</span>
+        <span class="chip"><span class="swatch accent-3"></span>Extra Payment</span>
+      </div>
+      <canvas id="ccbpChart" height="420"></canvas>
+      <div class="tip">Tip: If your payment is less than the monthly interest, your balance will grow. Increase payment or reduce APR to reach payoff.</div>
+    </section>
+  </div>
+</div>
+
+<!-- Chart.js (CDN) -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<!-- Visual theme addon (doesn't change data) -->
+<script src="./chartjs-theme-addon.js"></script>
+<!-- App logic -->
+<script src="./app.js"></script>
+</body>
+</html>
