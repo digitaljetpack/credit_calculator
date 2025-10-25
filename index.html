@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Credit Card Balance Predictor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f172a;         /* slate-900 */
+      --panel: #111827;      /* gray-900 */
+      --text: #e5e7eb;       /* gray-200 */
+      --muted: #9ca3af;      /* gray-400 */
+      --accent: #22d3ee;     /* cyan-400 */
+      --accent-2: #fb923c;   /* orange-400 */
+      --ok: #22c55e;         /* green-500 */
+      --warn: #ef4444;       /* red-500 */
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0; background: linear-gradient(180deg, #0b1220 0%, #0f172a 60%, #0b1220 100%);
+      color: var(--text); font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+    }
+    header { padding: 16px 20px; display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+    header h1 { font-size: 18px; margin: 0; letter-spacing: 0.2px; font-weight: 700; }
+    .tag { color: var(--muted); font-size: 12px; }
+
+    .wrap { width: 100%; max-width: 1400px; margin: 0 auto; padding: 10px 16px 24px; }
+    .layout { display: grid; grid-template-columns: 1fr; gap: 16px; }
+    @media (min-width: 980px) {
+      .layout { grid-template-columns: 320px 1fr; gap: 20px; }
+    }
+
+    .panel {
+      background: rgba(17, 24, 39, 0.7);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 16px; padding: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+      backdrop-filter: blur(6px);
+    }
+
+    .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .controls .full { grid-column: 1 / -1; }
+    .input { display: grid; gap: 8px; }
+    label { font-size: 13px; color: var(--muted); }
+    input[type="number"] {
+      width: 100%; border-radius: 12px; background: #0b1020; color: var(--text);
+      border: 1px solid rgba(255,255,255,0.08); padding: 12px 14px; font-size: 16px;
+    }
+    input:focus { outline: 2px solid rgba(34, 211, 238, 0.6); border-color: rgba(34,211,238,0.4); }
+
+    .btns { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+    button {
+      appearance: none; border: 1px solid rgba(255,255,255,0.10); color: var(--text);
+      background: linear-gradient(180deg, rgba(34,211,238,0.12), rgba(34,211,238,0.06));
+      padding: 10px 14px; border-radius: 12px; cursor: pointer; font-weight: 600;
+    }
+    button.secondary { background: transparent; }
+    button.warn { border-color: rgba(239, 68, 68, 0.3); background: linear-gradient(180deg, rgba(239,68,68,0.14), rgba(239,68,68,0.06)); }
+
+    .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+    .metric { background: rgba(11,16,32,0.9); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 12px; }
+    .metric .k { font-size: 12px; color: var(--muted); }
+    .metric .v { font-weight: 700; font-size: 16px; margin-top: 6px; }
+
+    /* Chart card maximized */
+    .chart-card { position: relative; height: 60vh; min-height: 360px; max-height: 820px; }
+    @media (min-width: 980px) { .chart-card { height: 72vh; min-height: 480px; } }
+    .chart-card canvas { position: absolute; inset: 0; }
+
+    .badge { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 6px 10px; font-size: 12px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04); }
+    .badge.ok { border-color: rgba(34,197,94,0.35); background: rgba(34,197,94,0.10); }
+    .badge.warn { border-color: rgba(239,68,68,0.35); background: rgba(239,68,68,0.10); }
+
+    footer { color: var(--muted); font-size: 12px; text-align: center; padding-top: 10px; }
+    a.link { color: var(--accent); text-decoration: none; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>💳 Credit Card Balance Predictor</h1>
+    <div class="tag">Fast, responsive, and screen‑filling projection</div>
+  </header>
+
+  <div class="wrap">
+    <div class="layout">
+      <!-- Controls Panel -->
+      <section class="panel">
+        <div class="controls">
+          <div class="input full">
+            <label for="balance">Starting Balance ($)</label>
+            <input id="balance" type="number" inputmode="decimal" min="0" step="0.01" value="5000" />
+          </div>
+          <div class="input">
+            <label for="apr">APR (%)</label>
+            <input id="apr" type="number" inputmode="decimal" min="0" max="100" step="0.01" value="19.99" />
+          </div>
+          <div class="input">
+            <label for="payment">Monthly Payment ($)</label>
+            <input id="payment" type="number" inputmode="decimal" min="0" step="0.01" value="200" />
+          </div>
+          <div class="input full">
+            <label for="horizon">Projection Horizon (months)</label>
+            <input id="horizon" type="number" min="1" max="600" step="1" value="240" />
+          </div>
+        </div>
+        <div class="btns">
+          <button id="simulateBtn">Project</button>
+          <button id="fullscreenBtn" class="secondary">Fullscreen Chart</button>
+          <button id="csvBtn" class="secondary">Export CSV</button>
+          <button id="resetBtn" class="warn">Reset</button>
+        </div>
+
+        <div class="metrics">
+          <div class="metric">
+            <div class="k">Estimated Payoff</div>
+            <div class="v" id="mPayoff">—</div>
+          </div>
+          <div class="metric">
+            <div class="k">Total Interest</div>
+            <div class="v" id="mInterest">—</div>
+          </div>
+          <div class="metric">
+            <div class="k">Status</div>
+            <div class="v" id="mStatus"><span class="badge">Waiting…</span></div>
+          </div>
+          <div class="metric">
+            <div class="k">Assumption</div>
+            <div class="v">Monthly compounding; interest applied before payment</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Chart Panel -->
+      <section id="chartCard" class="panel chart-card">
+        <canvas id="chart"></canvas>
+      </section>
+    </div>
+    <footer>
+      Tip: If your payment is less than the monthly interest, your balance will grow. Increase payment or reduce APR to reach payoff.
+    </footer>
+  </div>
+
+  <script>
+    // Helpers
+    const $ = (id) => document.getElementById(id);
+    const fmtCurrency = (n) => n.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
+    const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
+
+    function simulate(balance, aprPct, payment, maxMonths = 600, horizon = 240) {
+      balance = Number(balance) || 0;
+      aprPct = Number(aprPct) || 0;
+      payment = Number(payment) || 0;
+      maxMonths = Math.max(1, Math.min(600, Number(maxMonths) || 600));
+      horizon = Math.max(1, Math.min(600, Number(horizon) || 240));
+
+      const r = aprPct / 100 / 12; // monthly rate
+      const labels = [];
+      const balances = [];
+      const interests = [];
+
+      let month = 0;
+      let totalInterest = 0;
+      let paidOffAt = null;
+      let b = balance;
+
+      // If payment is 0, just project horizon months
+      const monthsToRun = horizon;
+
+      while (month < monthsToRun) {
+        const interest = b * r;
+        const newB = b + interest - payment;
+        totalInterest += interest;
+
+        labels.push(`M${month+1}`);
+        // For plotting, do not let negative values dip below 0 visually
+        balances.push(Math.max(newB < 0 ? 0 : newB, 0));
+        interests.push(interest);
+
+        if (newB <= 0 && paidOffAt === null) {
+          paidOffAt = month + 1; // payoff occurs this month
+          // Still fill remaining horizon with zeros to keep chart length stable
+          for (let k = month + 1; k < monthsToRun; k++) {
+            labels.push(`M${k+1}`);
+            balances.push(0);
+            interests.push(0);
+          }
+          break;
+        }
+
+        b = newB;
+        month++;
+      }
+
+      // If never hit payoff but exceeded maxMonths, signal potentially unpayable
+      const unpayable = r > 0 && payment <= (balance * r) && paidOffAt === null;
+
+      const start = new Date();
+      let payoffDate = null;
+      if (paidOffAt !== null) {
+        payoffDate = new Date(start.getFullYear(), start.getMonth() + paidOffAt, start.getDate());
+      }
+
+      return { labels, balances, interests, totalInterest, paidOffAt, payoffDate, unpayable };
+    }
+
+    // Chart init
+    const ctx = $("chart").getContext('2d');
+    let chart;
+
+    function buildChart(labels, balances) {
+      if (chart) chart.destroy();
+      chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Projected Balance',
+            data: balances,
+            borderWidth: 2.5,
+            pointRadius: 0,
+            tension: 0.18,
+          }]
+        },
+        options: {
+          maintainAspectRatio: false,
+          responsive: true,
+          animation: { duration: 500 },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => ` ${fmtCurrency(ctx.parsed.y)}`
+              }
+            },
+            title: {
+              display: true,
+              text: 'Credit Card Balance Projection',
+              color: '#e5e7eb',
+              font: { weight: '700', size: 16 }
+            }
+          },
+          scales: {
+            x: { grid: { color: 'rgba(255,255,255,0.06)' }, ticks: { color: '#9ca3af' } },
+            y: {
+              grid: { color: 'rgba(255,255,255,0.06)' },
+              ticks: {
+                color: '#9ca3af',
+                callback: (v) => fmtCurrency(v)
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function update() {
+      const balance = clamp($("balance").value, 0, 1e9);
+      const apr = clamp($("apr").value, 0, 100);
+      const payment = clamp($("payment").value, 0, 1e8);
+      const horizon = clamp($("horizon").value, 1, 600);
+
+      const { labels, balances, totalInterest, paidOffAt, payoffDate, unpayable } = simulate(balance, apr, payment, 600, horizon);
+      buildChart(labels, balances);
+
+      // Metrics
+      $("mInterest").textContent = fmtCurrency(totalInterest);
+
+      if (paidOffAt !== null) {
+        const months = paidOffAt;
+        const years = Math.floor(months / 12);
+        const rem = months % 12;
+        const parts = [];
+        if (years) parts.push(`${years} yr${years>1?'s':''}`);
+        if (rem) parts.push(`${rem} mo`);
+        const payoffText = payoffDate ? `${parts.join(' ')} (by ${payoffDate.toLocaleDateString()})` : `${parts.join(' ')}`;
+        $("mPayoff").textContent = payoffText || `${months} mo`;
+        $("mStatus").innerHTML = `<span class="badge ok">On track to $0</span>`;
+      } else {
+        $("mPayoff").textContent = 'Not within horizon';
+        if (unpayable) {
+          $("mStatus").innerHTML = `<span class="badge warn">Payment < monthly interest — increase payment</span>`;
+        } else {
+          $("mStatus").innerHTML = `<span class="badge">Extend horizon to see full payoff</span>`;
+        }
+      }
+    }
+
+    // CSV Export
+    function exportCSV() {
+      // Re-run sim with current values to capture full series
+      const balance = clamp($("balance").value, 0, 1e9);
+      const apr = clamp($("apr").value, 0, 100);
+      const payment = clamp($("payment").value, 0, 1e8);
+      const horizon = clamp($("horizon").value, 1, 600);
+      const r = apr / 100 / 12;
+      let b = balance;
+      let rows = [['Month', 'Starting Balance', 'Interest', 'Payment', 'Ending Balance']];
+
+      for (let m = 1; m <= horizon; m++) {
+        const interest = b * r;
+        let end = b + interest - payment;
+        if (end < 0) end = 0;
+        rows.push([m, b.toFixed(2), interest.toFixed(2), payment.toFixed(2), end.toFixed(2)]);
+        b = b + interest - payment;
+        if (b <= 0) break;
+      }
+
+      const csv = rows.map(r => r.join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'credit_card_projection.csv';
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    // Fullscreen
+    function toggleFullscreen() {
+      const card = $("chartCard");
+      if (!document.fullscreenElement) {
+        card.requestFullscreen?.();
+      } else {
+        document.exitFullscreen?.();
+      }
+      setTimeout(() => chart?.resize(), 100);
+    }
+
+    // Defaults & smart tweak: if user edits balance and payment is 0, set payment to 2% of balance
+    ["balance"].forEach(id => {
+      $(id).addEventListener('change', () => {
+        const bal = Number($("balance").value) || 0;
+        const payEl = $("payment");
+        if (!Number(payEl.value)) {
+          payEl.value = (bal * 0.02).toFixed(2);
+        }
+        update();
+      });
+    });
+
+    ["apr","payment","horizon"].forEach(id => $(id).addEventListener('change', update));
+
+    $("simulateBtn").addEventListener('click', update);
+    $("resetBtn").addEventListener('click', () => {
+      $("balance").value = 5000;
+      $("apr").value = 19.99;
+      $("payment").value = 200;
+      $("horizon").value = 240;
+      update();
+    });
+    $("csvBtn").addEventListener('click', exportCSV);
+    $("fullscreenBtn").addEventListener('click', toggleFullscreen);
+
+    // Kickoff
+    update();
+
+    // Resize safety
+    window.addEventListener('resize', () => chart?.resize());
+    document.addEventListener('fullscreenchange', () => setTimeout(() => chart?.resize(), 100));
+  </script>
+</body>
+</html>
