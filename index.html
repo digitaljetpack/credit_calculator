@@ -32,7 +32,7 @@
     .wrap { width: 100%; max-width: 1400px; margin: 0 auto; padding: 10px 16px 24px; }
     .layout { display: grid; grid-template-columns: 1fr; gap: 16px; }
     @media (min-width: 980px) {
-      .layout { grid-template-columns: 320px 1fr; gap: 20px; }
+      .layout { grid-template-columns: 340px 1fr; gap: 20px; }
     }
 
     .panel {
@@ -46,7 +46,7 @@
     .controls .full { grid-column: 1 / -1; }
     .input { display: grid; gap: 8px; }
     label { font-size: 13px; color: var(--muted); }
-    input[type="number"] {
+    input[type="number"], input[type="date"] {
       width: 100%; border-radius: 12px; background: #0b1020; color: var(--text);
       border: 1px solid rgba(255,255,255,0.08); padding: 12px 14px; font-size: 16px;
     }
@@ -66,6 +66,16 @@
     .metric .k { font-size: 12px; color: var(--muted); }
     .metric .v { font-weight: 700; font-size: 16px; margin-top: 6px; }
 
+    /* One-time events UI */
+    .subhead { font-size: 13px; font-weight: 700; color: var(--text); margin-top: 14px; }
+    .events-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 8px; }
+    .events-list { margin-top: 10px; display: grid; gap: 8px; }
+    .event-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; background: rgba(255,255,255,0.03); }
+    .event-item .info { display: flex; gap: 12px; align-items: baseline; }
+    .event-item .info .date { color: var(--text); font-weight: 600; }
+    .event-item .info .amt { color: var(--accent-2); font-weight: 700; }
+    .event-item .actions button { font-size: 12px; padding: 6px 10px; }
+
     /* Chart card maximized */
     .chart-card { position: relative; height: 60vh; min-height: 360px; max-height: 820px; }
     @media (min-width: 980px) { .chart-card { height: 72vh; min-height: 480px; } }
@@ -74,6 +84,9 @@
     .badge { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 6px 10px; font-size: 12px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04); }
     .badge.ok { border-color: rgba(34,197,94,0.35); background: rgba(34,197,94,0.10); }
     .badge.warn { border-color: rgba(239,68,68,0.35); background: rgba(239,68,68,0.10); }
+
+    .notice { margin: 8px 0 0; font-size: 12px; color: #fca5a5; display: none; }
+    .notice.show { display: block; }
 
     footer { color: var(--muted); font-size: 12px; text-align: center; padding-top: 10px; }
     a.link { color: var(--accent); text-decoration: none; }
@@ -114,6 +127,24 @@
           <button id="resetBtn" class="warn">Reset</button>
         </div>
 
+        <!-- One-time Events: extra principal payments on specific dates -->
+        <div class="subhead">One‑time extra payments</div>
+        <div class="events-grid">
+          <div class="input">
+            <label for="eventDate">Date</label>
+            <input id="eventDate" type="date" />
+          </div>
+          <div class="input">
+            <label for="eventAmount">Extra payment ($)</label>
+            <input id="eventAmount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="1000" />
+          </div>
+          <div class="input">
+            <label>&nbsp;</label>
+            <button id="addEventBtn">Add Event</button>
+          </div>
+        </div>
+        <div id="eventsList" class="events-list"></div>
+
         <div class="metrics">
           <div class="metric">
             <div class="k">Estimated Payoff</div>
@@ -129,7 +160,7 @@
           </div>
           <div class="metric">
             <div class="k">Assumption</div>
-            <div class="v">Monthly compounding; interest applied before payment</div>
+            <div class="v">Monthly compounding; interest segments within month if extra payment has a date.</div>
           </div>
         </div>
       </section>
@@ -137,6 +168,7 @@
       <!-- Chart Panel -->
       <section id="chartCard" class="panel chart-card">
         <canvas id="chart"></canvas>
+        <div id="notice" class="notice">Chart.js failed to load. Showing fallback drawing. For best results, allow CDN scripts or I can provide a no‑CDN file.</div>
       </section>
     </div>
     <footer>
@@ -145,11 +177,53 @@
   </div>
 
   <script>
-    // Helpers
+    // ===== Helpers =====
     const $ = (id) => document.getElementById(id);
     const fmtCurrency = (n) => n.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
     const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
 
+    // One-time extra payments state & helpers
+    const START_DATE = new Date();
+    let events = []; // {id, date: 'YYYY-MM-DD', amount}
+    const pad = (x) => String(x).padStart(2, '0');
+    const toISODate = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    function daysInMonth(y, m) { return new Date(y, m + 1, 0).getDate(); }
+    function monthIndexFromStart(start, d) {
+      return (d.getFullYear() - start.getFullYear()) * 12 + (d.getMonth() - start.getMonth());
+    }
+
+    function addEventFromUI() {
+      const dateStr = $("eventDate").value;
+      const amt = Number($("eventAmount").value || 0);
+      if (!dateStr || !(amt > 0)) return;
+      const id = `${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
+      events.push({ id, date: dateStr, amount: +amt.toFixed(2) });
+      $("eventAmount").value = '';
+      renderEventsList();
+      update();
+    }
+    function removeEvent(id) {
+      events = events.filter(e => e.id !== id);
+      renderEventsList();
+      update();
+    }
+    function renderEventsList() {
+      const s = START_DATE;
+      $("eventsList").innerHTML = events
+        .slice().sort((a,b)=>a.date.localeCompare(b.date))
+        .map(ev => {
+          const d = new Date(ev.date + 'T00:00:00');
+          const mi = Math.max(0, monthIndexFromStart(s, d));
+          const label = `M${mi+1}`;
+          return `<div class="event-item">
+            <div class="info"><span class="date">${ev.date}</span><span>→</span><span>${label}</span><span class="amt">−${fmtCurrency(ev.amount)}</span></div>
+            <div class="actions"><button data-remove="${ev.id}">Remove</button></div>
+          </div>`;
+        }).join('');
+      $("eventsList").querySelectorAll('button[data-remove]').forEach(btn => btn.addEventListener('click', (e)=> removeEvent(e.currentTarget.getAttribute('data-remove'))));
+    }
+
+    // ===== Core simulation =====
     function simulate(balance, aprPct, payment, maxMonths = 600, horizon = 240) {
       balance = Number(balance) || 0;
       aprPct = Number(aprPct) || 0;
@@ -157,131 +231,208 @@
       maxMonths = Math.max(1, Math.min(600, Number(maxMonths) || 600));
       horizon = Math.max(1, Math.min(600, Number(horizon) || 240));
 
-      const r = aprPct / 100 / 12; // monthly rate
+      const r = aprPct / 100 / 12; // monthly nominal rate
       const labels = [];
       const balances = [];
       const interests = [];
+      const markers = []; // scatter points for extra payments
+      const monthExtras = [];
 
       let month = 0;
       let totalInterest = 0;
       let paidOffAt = null;
       let b = balance;
 
-      // If payment is 0, just project horizon months
-      const monthsToRun = horizon;
+      // Build event map by month index with in-month fractions
+      const byMonth = {};
+      const s = START_DATE;
+      (events || []).forEach(ev => {
+        const d = new Date(ev.date + 'T00:00:00');
+        if (isNaN(d)) return;
+        const mi = monthIndexFromStart(s, d);
+        if (mi < 0 || mi >= horizon) return;
+        const dim = daysInMonth(d.getFullYear(), d.getMonth());
+        const frac = Math.max(0, Math.min(1, (d.getDate() - 1) / dim));
+        (byMonth[mi] ||= []).push({ ...ev, frac, dateObj: d });
+      });
 
-      while (month < monthsToRun) {
-        const interest = b * r;
-        const newB = b + interest - payment;
-        totalInterest += interest;
+      while (month < horizon) {
+        const label = `M${month+1}`;
+        labels.push(label);
+        let iMonth = 0;
+        let t0 = 0; // fraction within month where last change happened
+        let extraThisMonth = 0;
 
-        labels.push(`M${month+1}`);
-        // For plotting, do not let negative values dip below 0 visually
-        balances.push(Math.max(newB < 0 ? 0 : newB, 0));
-        interests.push(interest);
+        const monthEvents = (byMonth[month] || []).slice().sort((a,b)=> a.frac - b.frac);
 
-        if (newB <= 0 && paidOffAt === null) {
-          paidOffAt = month + 1; // payoff occurs this month
-          // Still fill remaining horizon with zeros to keep chart length stable
-          for (let k = month + 1; k < monthsToRun; k++) {
+        // Accrue/Apply through events in this month
+        for (const ev of monthEvents) {
+          if (b <= 0) break;
+          const dt = ev.frac - t0;
+          if (dt > 0) {
+            const iSeg = b * r * dt;
+            iMonth += iSeg;
+            totalInterest += iSeg;
+            b += iSeg;
+            t0 = ev.frac;
+          }
+          // Apply extra payment now (cap to balance)
+          const applied = Math.min(b, ev.amount);
+          b -= applied;
+          extraThisMonth += applied;
+          markers.push({ x: month, y: Math.max(b, 0), amount: applied, date: ev.date });
+          if (b <= 0) {
+            // Finished mid-month due to event
+            break;
+          }
+        }
+
+        if (b > 0) {
+          // Accrue the rest of the month
+          const dtRem = 1 - t0;
+          if (dtRem > 0) {
+            const iSeg = b * r * dtRem;
+            iMonth += iSeg;
+            totalInterest += iSeg;
+            b += iSeg;
+          }
+          // Apply scheduled monthly payment at month end
+          b -= payment;
+        }
+
+        // Clamp for plotting
+        balances.push(Math.max(b, 0));
+        interests.push(Math.max(iMonth, 0));
+        monthExtras.push(extraThisMonth);
+
+        if (b <= 0 && paidOffAt === null) {
+          paidOffAt = month + 1;
+          // Fill remaining horizon with zeros
+          for (let k = month + 1; k < horizon; k++) {
             labels.push(`M${k+1}`);
             balances.push(0);
             interests.push(0);
+            monthExtras.push(0);
           }
           break;
         }
 
-        b = newB;
         month++;
       }
 
-      // If never hit payoff but exceeded maxMonths, signal potentially unpayable
-      const unpayable = r > 0 && payment <= (balance * r) && paidOffAt === null;
+      const unpayable = (events.length === 0) && r > 0 && payment <= (balance * r) && paidOffAt === null;
 
-      const start = new Date();
+      const start = START_DATE;
       let payoffDate = null;
       if (paidOffAt !== null) {
         payoffDate = new Date(start.getFullYear(), start.getMonth() + paidOffAt, start.getDate());
       }
 
-      return { labels, balances, interests, totalInterest, paidOffAt, payoffDate, unpayable };
+      return { labels, balances, interests, markers, monthExtras, totalInterest, paidOffAt, payoffDate, unpayable };
     }
 
-    // Chart init
+    // ===== Chart or Fallback =====
     const ctx = $("chart").getContext('2d');
     let chart;
 
-    function buildChart(labels, balances, interests) {
+    function buildChart(labels, balances, interests, markers) {
+      if (!window.Chart) { drawFallback(labels, balances, interests, markers); return; }
       if (chart) chart.destroy();
       chart = new Chart(ctx, {
         type: 'line',
-        data: {
-          labels,
-          datasets: [
-            {
-              label: 'Projected Balance',
-              data: balances,
-              yAxisID: 'y',
-              borderWidth: 2.5,
-              pointRadius: 0,
-              tension: 0.18,
-            },
-            {
-              label: 'Monthly Interest',
-              data: interests,
-              yAxisID: 'y1',
-              borderDash: [6, 4],
-              borderWidth: 2,
-              pointRadius: 0,
-              tension: 0.18,
-            }
-          ]
-        },
+        data: { labels, datasets: [
+          { label: 'Projected Balance', data: balances, yAxisID: 'y', borderWidth: 2.5, pointRadius: 0, tension: 0.18, borderColor: 'rgba(34,211,238,0.95)' },
+          { label: 'Monthly Interest', data: interests, yAxisID: 'y1', borderDash: [6,4], borderWidth: 2, pointRadius: 0, tension: 0.18, borderColor: 'rgba(251,146,60,0.95)' },
+          { type: 'scatter', label: 'Extra Payment', data: markers, parsing: false, yAxisID: 'y', showLine: false, pointRadius: 5, pointHoverRadius: 7, borderColor: '#fff', backgroundColor: '#fff' }
+        ]},
         options: {
           maintainAspectRatio: false,
           responsive: true,
-          animation: { duration: 500 },
+          animation: { duration: 300 },
           plugins: {
             legend: { display: true },
-            tooltip: {
-              callbacks: {
-                label: (ctx) => `${ctx.dataset.label}: ${fmtCurrency(ctx.parsed.y)}`
+            tooltip: { callbacks: {
+              label: (ctx) => {
+                if (ctx.dataset.label === 'Extra Payment') {
+                  const raw = ctx.raw || {}; const parts = [`Extra: −${fmtCurrency(raw.amount||0)}`];
+                  if (raw.date) parts.push(`on ${raw.date}`);
+                  parts.push(`bal → ${fmtCurrency(ctx.parsed.y)}`);
+                  return parts.join(' ');
+                }
+                return `${ctx.dataset.label}: ${fmtCurrency(ctx.parsed.y)}`;
               }
-            },
-            title: {
-              display: true,
-              text: 'Credit Card Balance Projection',
-              color: '#e5e7eb',
-              font: { weight: '700', size: 16 }
-            }
+            }},
+            title: { display: true, text: 'Credit Card Balance Projection', color: '#e5e7eb', font: { weight: '700', size: 16 } }
           },
           scales: {
             x: { grid: { color: 'rgba(255,255,255,0.06)' }, ticks: { color: '#9ca3af' } },
-            y: {
-              grid: { color: 'rgba(255,255,255,0.06)' },
-              ticks: {
-                color: '#9ca3af',
-                callback: (v) => fmtCurrency(v)
-              }
-            },
-            y1: {
-              position: 'right',
-              grid: { drawOnChartArea: false },
-              ticks: { color: '#9ca3af', callback: (v) => fmtCurrency(v) }
-            }
+            y: { grid: { color: 'rgba(255,255,255,0.06)' }, ticks: { color: '#9ca3af', callback: (v) => fmtCurrency(v) } },
+            y1:{ position:'right', grid:{ drawOnChartArea:false }, ticks:{ color:'#9ca3af', callback:(v)=>fmtCurrency(v)} }
           }
         }
       });
     }
 
+    function drawFallback(labels, balances, interests, markers){
+      // Simple immediate-mode line drawing so you still see a chart if CDN is blocked
+      $("notice").classList.add('show');
+      const canvas = $("chart");
+      const ctx2 = canvas.getContext('2d');
+      const w = canvas.clientWidth || canvas.width; const h = canvas.clientHeight || canvas.height;
+      canvas.width = w; canvas.height = h;
+
+      // Padding
+      const padL = 56, padR = 56, padT = 24, padB = 36;
+      const plotW = w - padL - padR; const plotH = h - padT - padB;
+
+      // Scales
+      const maxBal = Math.max(...balances, 1);
+      const maxInt = Math.max(...interests, 1);
+      const n = Math.max(labels.length - 1, 1);
+      const xOf = i => padL + (i / n) * plotW;
+      const yLeft = v => padT + (1 - v / maxBal) * plotH;
+      const yRight = v => padT + (1 - v / maxInt) * plotH;
+
+      // Clear
+      ctx2.clearRect(0,0,w,h);
+      ctx2.fillStyle = 'rgba(255,255,255,0.05)';
+      ctx2.fillRect(padL, padT, plotW, plotH);
+
+      // Axes
+      ctx2.strokeStyle = 'rgba(255,255,255,0.2)'; ctx2.lineWidth = 1;
+      ctx2.beginPath(); ctx2.moveTo(padL, padT); ctx2.lineTo(padL, padT+plotH); ctx2.lineTo(padL+plotW, padT+plotH); ctx2.stroke();
+
+      // Balance line
+      ctx2.strokeStyle = 'rgba(34,211,238,0.95)'; ctx2.lineWidth = 2.5; ctx2.beginPath();
+      balances.forEach((v,i)=>{ const x=xOf(i), y=yLeft(v); if(i===0)ctx2.moveTo(x,y); else ctx2.lineTo(x,y); }); ctx2.stroke();
+
+      // Interest line
+      ctx2.strokeStyle = 'rgba(251,146,60,0.95)'; ctx2.lineWidth = 2; ctx2.setLineDash([6,4]); ctx2.beginPath();
+      interests.forEach((v,i)=>{ const x=xOf(i), y=yRight(v); if(i===0)ctx2.moveTo(x,y); else ctx2.lineTo(x,y); }); ctx2.stroke(); ctx2.setLineDash([]);
+
+      // Extra markers
+      ctx2.fillStyle = '#fff';
+      markers.forEach(m=>{ const i = Math.min(Math.max(+m.x,0), labels.length-1); const x=xOf(i); const y=yLeft(m.y); ctx2.beginPath(); ctx2.arc(x,y,4,0,Math.PI*2); ctx2.fill(); });
+
+      // Y labels (left)
+      ctx2.fillStyle = '#9ca3af'; ctx2.font = '12px Inter, system-ui, sans-serif'; ctx2.textAlign='right'; ctx2.textBaseline='middle';
+      for(let t=0;t<=4;t++){ const v=maxBal*(t/4); const y=yLeft(v); ctx2.fillText(fmtCurrency(v), padL-6, y); }
+      // Y1 labels (right)
+      ctx2.textAlign='left'; for(let t=0;t<=4;t++){ const v=maxInt*(t/4); const y=yRight(v); ctx2.fillText(fmtCurrency(v), padL+plotW+6, y); }
+      // X labels
+      ctx2.textAlign='center'; ctx2.textBaseline='top';
+      for(let i=0;i<labels.length;i+=Math.ceil(labels.length/8)){ ctx2.fillText(labels[i], xOf(i), padT+plotH+6); }
+    }
+
+    // ===== Orchestration =====
     function update() {
       const balance = clamp($("balance").value, 0, 1e9);
       const apr = clamp($("apr").value, 0, 100);
       const payment = clamp($("payment").value, 0, 1e8);
       const horizon = clamp($("horizon").value, 1, 600);
 
-      const { labels, balances, interests, totalInterest, paidOffAt, payoffDate, unpayable } = simulate(balance, apr, payment, 600, horizon);
-      buildChart(labels, balances, interests);
+      const { labels, balances, interests, markers, monthExtras, totalInterest, paidOffAt, payoffDate, unpayable } = simulate(balance, apr, payment, 600, horizon);
+      buildChart(labels, balances, interests, markers);
 
       // Metrics
       $("mInterest").textContent = fmtCurrency(totalInterest);
@@ -306,26 +457,17 @@
       }
     }
 
-    // CSV Export
+    // CSV Export including extra payments
     function exportCSV() {
-      // Re-run sim with current values to capture full series
       const balance = clamp($("balance").value, 0, 1e9);
       const apr = clamp($("apr").value, 0, 100);
       const payment = clamp($("payment").value, 0, 1e8);
       const horizon = clamp($("horizon").value, 1, 600);
-      const r = apr / 100 / 12;
-      let b = balance;
-      let rows = [['Month', 'Starting Balance', 'Interest', 'Payment', 'Ending Balance']];
-
-      for (let m = 1; m <= horizon; m++) {
-        const interest = b * r;
-        let end = b + interest - payment;
-        if (end < 0) end = 0;
-        rows.push([m, b.toFixed(2), interest.toFixed(2), payment.toFixed(2), end.toFixed(2)]);
-        b = b + interest - payment;
-        if (b <= 0) break;
+      const { labels, balances, interests, monthExtras } = simulate(balance, apr, payment, 600, horizon);
+      const rows = [['Month', 'Ending Balance', 'Monthly Interest', 'Scheduled Payment', 'Extra Payment (one-time)']];
+      for (let i = 0; i < labels.length; i++) {
+        rows.push([labels[i], (balances[i]??0).toFixed(2), (interests[i]||0).toFixed(2), payment.toFixed(2), (monthExtras[i]||0).toFixed(2)]);
       }
-
       const csv = rows.map(r => r.join(',')).join('\n');
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
@@ -338,22 +480,16 @@
     // Fullscreen
     function toggleFullscreen() {
       const card = $("chartCard");
-      if (!document.fullscreenElement) {
-        card.requestFullscreen?.();
-      } else {
-        document.exitFullscreen?.();
-      }
-      setTimeout(() => chart?.resize(), 100);
+      if (!document.fullscreenElement) { card.requestFullscreen?.(); } else { document.exitFullscreen?.(); }
+      setTimeout(() => { if (window.Chart) chart?.resize(); else update(); }, 100);
     }
 
-    // Defaults & smart tweak: if user edits balance and payment is 0, set payment to 2% of balance
+    // Defaults & smart tweak
     ["balance"].forEach(id => {
       $(id).addEventListener('change', () => {
         const bal = Number($("balance").value) || 0;
         const payEl = $("payment");
-        if (!Number(payEl.value)) {
-          payEl.value = (bal * 0.02).toFixed(2);
-        }
+        if (!Number(payEl.value)) { payEl.value = (bal * 0.02).toFixed(2); }
         update();
       });
     });
@@ -366,17 +502,24 @@
       $("apr").value = 19.99;
       $("payment").value = 200;
       $("horizon").value = 240;
+      events = [];
+      renderEventsList();
       update();
     });
     $("csvBtn").addEventListener('click', exportCSV);
     $("fullscreenBtn").addEventListener('click', toggleFullscreen);
 
+    // Events UI listeners
+    $("addEventBtn").addEventListener('click', addEventFromUI);
+
     // Kickoff
+    $("eventDate").value = toISODate(START_DATE);
+    renderEventsList();
     update();
 
     // Resize safety
-    window.addEventListener('resize', () => chart?.resize());
-    document.addEventListener('fullscreenchange', () => setTimeout(() => chart?.resize(), 100));
+    window.addEventListener('resize', () => { if (window.Chart) chart?.resize(); else update(); });
+    document.addEventListener('fullscreenchange', () => setTimeout(() => { if (window.Chart) chart?.resize(); else update(); }, 100));
   </script>
 </body>
 </html>
