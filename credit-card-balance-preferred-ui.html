@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Credit Card Balance Predictor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --panel: #0f172a;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --ok: #22c55e;
+      --warn: #ef4444;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0; background: radial-gradient(1200px 600px at 10% -20%, #0d1b36 0%, #0b1220 50%, #060a14 100%);
+      color: var(--text); font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+    }
+    header { padding: 16px 20px; display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+    header h1 { font-size: 18px; margin: 0; letter-spacing: 0.2px; font-weight: 700; }
+    .tag { color: var(--muted); font-size: 12px; }
+
+    .wrap { width: 100%; max-width: 1800px; margin: 0 auto; padding: 10px 16px 24px; }
+
+    .layout { display: grid; grid-template-columns: 1fr; gap: 18px; }
+    @media (min-width: 1100px) {
+      .layout { grid-template-columns: minmax(420px, 560px) 1fr; gap: 24px; }
+    }
+
+    .panel {
+      background: linear-gradient(180deg, rgba(17,24,39,.85), rgba(17,24,39,.6));
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 18px; padding: 16px; box-shadow: 0 14px 40px rgba(0,0,0,0.35);
+      backdrop-filter: blur(6px);
+    }
+
+    .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .controls .full { grid-column: 1 / -1; }
+    .group-head { grid-column: 1 / -1; font-size: 12px; letter-spacing: .06em; color: var(--muted); text-transform: uppercase; padding-top: 6px; }
+
+    .input { display: grid; gap: 8px; }
+    label { font-size: 13px; color: var(--muted); }
+    input[type="number"], input[type="date"] {
+      width: 100%; border-radius: 14px; background: #0b1020; color: var(--text);
+      border: 1px solid rgba(255,255,255,0.10); padding: 14px 14px; font-size: 16px;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.03);
+    }
+    input:focus { outline: 2px solid rgba(255,255,255,0.35); border-color: rgba(255,255,255,0.45); }
+
+    .btns { display: flex; gap: 10px; flex-wrap: wrap; margin: 6px 0 4px; }
+    button {
+      appearance: none; border: 1px solid rgba(255,255,255,0.18); color: var(--text);
+      background: linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.05));
+      padding: 10px 14px; border-radius: 12px; cursor: pointer; font-weight: 600;
+    }
+    button.secondary { background: transparent; }
+    button.warn { border-color: rgba(239, 68, 68, 0.3); background: linear-gradient(180deg, rgba(239,68,68,0.14), rgba(239,68,68,0.06)); }
+
+    .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+    .metric { background: rgba(11,16,32,0.9); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 12px; }
+    .metric .k { font-size: 12px; color: var(--muted); }
+    .metric .v { font-weight: 700; font-size: 16px; margin-top: 6px; }
+
+    .events-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 8px; }
+    .events-list { margin-top: 10px; display: grid; gap: 8px; }
+    .event-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; background: rgba(255,255,255,0.03); }
+    .event-item .info { display: flex; gap: 12px; align-items: baseline; }
+    .event-item .info .date { color: var(--text); font-weight: 600; }
+    .event-item .info .amt { color: #fff; font-weight: 700; }
+
+    .chart-card { position: relative; height: 58vh; min-height: 420px; max-height: 880px; border: 4px solid #fff; border-radius: 18px; }
+    @media (min-width: 1100px) { .chart-card { height: 70vh; min-height: 520px; } }
+    .chart-card canvas { position: absolute; inset: 0; }
+
+    /* Table panel */
+    .table-card { border-radius: 18px; }
+    .table-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+    .table-title { font-weight: 700; letter-spacing: .2px; }
+    .table-actions { display: flex; gap: 8px; }
+    .table-wrap { max-height: 32vh; overflow: auto; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; }
+    table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 14px; }
+    thead th { position: sticky; top: 0; background: rgba(255,255,255,0.04); color: var(--text); text-align: left; padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+    tbody td { padding: 10px 12px; color: var(--text); border-bottom: 1px dashed rgba(255,255,255,0.06); }
+    tbody tr:nth-child(odd) td { background: rgba(255,255,255,0.02); }
+    .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+    .badge { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 6px 10px; font-size: 12px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04); }
+    .badge.ok { border-color: rgba(34,197,94,0.35); background: rgba(34,197,94,0.10); }
+    .badge.warn { border-color: rgba(239,68,68,0.35); background: rgba(239,68,68,0.10); }
+
+    .notice { margin: 8px 0 0; font-size: 12px; color: #fca5a5; display: none; }
+    .notice.show { display: block; }
+
+    footer { color: var(--muted); font-size: 12px; text-align: center; padding-top: 10px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>💳 Credit Card Balance Predictor</h1>
+    <div class="tag">Fast, responsive, and screen‑filling projection</div>
+  </header>
+
+  <div class="wrap">
+    <div class="layout">
+      <!-- Controls Panel -->
+      <section class="panel">
+        <div class="controls">
+          <div class="group-head">Starting Point</div>
+          <div class="input full">
+            <label for="balance">Starting Balance ($)</label>
+            <input id="balance" type="number" inputmode="decimal" min="0" step="0.01" value="5000" />
+          </div>
+
+          <div class="group-head">Terms</div>
+          <div class="input">
+            <label for="apr">APR (%)</label>
+            <input id="apr" type="number" inputmode="decimal" min="0" max="100" step="0.01" value="19.99" />
+          </div>
+          <div class="input">
+            <label for="payment">Monthly Payment ($)</label>
+            <input id="payment" type="number" inputmode="decimal" min="0" step="0.01" value="220" />
+          </div>
+          <div class="input full">
+            <label for="horizon">Projection Horizon (months)</label>
+            <input id="horizon" type="number" min="1" max="600" step="1" value="240" />
+          </div>
+
+          <div class="group-head">Controls</div>
+          <div class="input full">
+            <div class="btns">
+              <button id="simulateBtn">Project</button>
+              <button id="fullscreenBtn" class="secondary">Fullscreen Chart</button>
+              <button id="csvBtn" class="secondary">Export CSV</button>
+              <button id="resetBtn" class="warn">Reset</button>
+            </div>
+          </div>
+
+          <div class="group-head">One‑time extra payments</div>
+          <div class="events-grid full">
+            <div class="input">
+              <label for="eventDate">Date</label>
+              <input id="eventDate" type="date" />
+            </div>
+            <div class="input">
+              <label for="eventAmount">Extra payment ($)</label>
+              <input id="eventAmount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="1000" />
+            </div>
+            <div class="input">
+              <label>&nbsp;</label>
+              <button id="addEventBtn">Add Event</button>
+            </div>
+          </div>
+          <div id="eventsList" class="events-list full"></div>
+
+          <div class="group-head">Summary</div>
+          <div class="metrics full" style="grid-column: 1 / -1;">
+            <div class="metric">
+              <div class="k">Estimated Payoff</div>
+              <div class="v" id="mPayoff">—</div>
+            </div>
+            <div class="metric">
+              <div class="k">Total Interest</div>
+              <div class="v" id="mInterest">—</div>
+            </div>
+            <div class="metric">
+              <div class="k">Status</div>
+              <div class="v" id="mStatus"><span class="badge">Waiting…</span></div>
+            </div>
+            <div class="metric">
+              <div class="k">Assumption</div>
+              <div class="v">Monthly compounding; monthly nodes + event nodes show underlying math.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Chart Panel -->
+      <section id="chartCard" class="panel chart-card">
+        <canvas id="chart"></canvas>
+        <div id="notice" class="notice">Chart.js failed to load or render. Falling back to built‑in canvas drawing.</div>
+      </section>
+    </div>
+
+    <!-- Details Table -->
+    <section class="panel table-card" style="margin-top:16px;">
+      <div class="table-head">
+        <div class="table-title">Monthly details for the period shown</div>
+        <div class="table-actions">
+          <button id="copyTableBtn">Copy as CSV</button>
+          <button id="downloadTableBtn">Download CSV</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th class="num">Start</th>
+              <th class="num">Interest</th>
+              <th class="num">Payment</th>
+              <th class="num">Extra</th>
+              <th class="num">End</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer>
+      Tip: If your payment is less than the monthly interest, your balance will grow. Increase payment or reduce APR to reach payoff.
+    </footer>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const fmtCurrency = (n) => n.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
+    const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
+
+    // Dates & helpers
+    const START_DATE = new Date();
+    let events = [];
+    const pad = (x) => String(x).padStart(2, '0');
+    const toISODate = (d) => \`\${d.getFullYear()}-\${pad(d.getMonth()+1)}-\${pad(d.getDate())}\`;
+    function daysInMonth(y, m) { return new Date(y, m + 1, 0).getDate(); }
+    function monthIndexFromStart(start, d) { return (d.getFullYear() - start.getFullYear()) * 12 + (d.getMonth() - start.getMonth()); }
+
+    function addEventFromUI() {
+      const dateStr = $("eventDate").value;
+      const amt = Number($("eventAmount").value || 0);
+      if (!dateStr || !(amt > 0)) return;
+      const id = \`\${Date.now()}_\${Math.random().toString(36).slice(2,7)}\`;
+      events.push({ id, date: dateStr, amount: +amt.toFixed(2) });
+      $("eventAmount").value = '';
+      renderEventsList();
+      update();
+    }
+    function removeEvent(id) { events = events.filter(e => e.id !== id); renderEventsList(); update(); }
+    function renderEventsList() {
+      const s = START_DATE;
+      $("eventsList").innerHTML = events
+        .slice().sort((a,b)=>a.date.localeCompare(b.date))
+        .map(ev => {
+          const d = new Date(ev.date + 'T00:00:00');
+          const mi = Math.max(0, monthIndexFromStart(s, d));
+          const label = \`M\${mi+1}\`;
+          return \`<div class="event-item">
+            <div class="info"><span class="date">\${ev.date}</span><span>→</span><span>\${label}</span><span class="amt">−\${fmtCurrency(ev.amount)}</span></div>
+            <div class="actions"><button data-remove="\${ev.id}">Remove</button></div>
+          </div>\`;
+        }).join('');
+      $("eventsList").querySelectorAll('button[data-remove]').forEach(btn => btn.addEventListener('click', (e)=> removeEvent(e.currentTarget.getAttribute('data-remove'))));
+    }
+
+    // Simulation
+    let lastSim = null;
+    function simulate(balance, aprPct, payment, maxMonths = 600, horizon = 240) {
+      balance = Number(balance) || 0; aprPct = Number(aprPct) || 0; payment = Number(payment) || 0;
+      maxMonths = Math.max(1, Math.min(600, Number(maxMonths) || 600));
+      horizon = Math.max(1, Math.min(600, Number(horizon) || 240));
+
+      const r = aprPct / 100 / 12;
+      const labels = [], starts = [], balances = [], interests = [], monthExtras = [], regPaid = [], markers = [];
+
+      let month = 0, totalInterest = 0, paidOffAt = null, b = balance;
+
+      const byMonth = {}; const s = START_DATE;
+      (events || []).forEach(ev => {
+        const d = new Date(ev.date + 'T00:00:00'); if (isNaN(d)) return;
+        const mi = monthIndexFromStart(s, d); if (mi < 0 || mi >= horizon) return;
+        const dim = daysInMonth(d.getFullYear(), d.getMonth());
+        const frac = Math.max(0, Math.min(1, (d.getDate() - 1) / dim));
+        (byMonth[mi] ||= []).push({ ...ev, frac });
+      });
+
+      while (month < horizon) {
+        labels.push(\`M\${month+1}\`);
+        starts.push(b);
+        let iMonth = 0; let t0 = 0; let extraThisMonth = 0; let appliedPayment = 0;
+
+        const monthEvents = (byMonth[month] || []).slice().sort((a,b)=> a.frac - b.frac);
+        for (const ev of monthEvents) {
+          if (b <= 0) break;
+          const dt = ev.frac - t0; if (dt > 0) { const iSeg = b * r * dt; iMonth += iSeg; totalInterest += iSeg; b += iSeg; t0 = ev.frac; }
+          const applied = Math.min(b, ev.amount); b -= applied; extraThisMonth += applied; markers.push({ x: month, y: Math.max(b,0), amount: applied, date: ev.date });
+          if (b <= 0) break;
+        }
+
+        if (b > 0) {
+          const dtRem = 1 - t0; if (dtRem > 0) { const iSeg = b * r * dtRem; iMonth += iSeg; totalInterest += iSeg; b += iSeg; }
+          appliedPayment = Math.min(payment, b); b -= appliedPayment;
+        }
+
+        balances.push(Math.max(b, 0)); interests.push(Math.max(iMonth, 0)); monthExtras.push(extraThisMonth); regPaid.push(appliedPayment);
+
+        if (b <= 0) { paidOffAt = month + 1; break; }
+        month++;
+      }
+
+      const unpayable = (events.length === 0) && r > 0 && payment <= (balance * r) && paidOffAt === null;
+      const start = START_DATE; let payoffDate = null; if (paidOffAt !== null) payoffDate = new Date(start.getFullYear(), start.getMonth() + paidOffAt, start.getDate());
+
+      lastSim = { labels, starts, balances, interests, monthExtras, regPaid, totalInterest, paidOffAt, payoffDate, unpayable, markers };
+      return lastSim;
+    }
+
+    // Chart rendering (with resilient fallback)
+    const ctx = $("chart").getContext('2d');
+    let chart;
+
+    function buildChart(labels, balances, interests, markers) {
+      const sim = lastSim;
+      if (!window.Chart) { drawFallback(sim); return; }
+      try {
+        if (chart) chart.destroy();
+        chart = new Chart(ctx, {
+          type: 'line',
+          data: { labels, datasets: [
+            { label: 'Projected Balance', data: balances, yAxisID: 'y', borderColor: '#fff', borderWidth: 2, borderDash: [3,3], pointRadius: 2.5, pointHoverRadius: 6, tension: 0.18 },
+            { label: 'Monthly Interest', data: interests, yAxisID: 'y1', borderColor: '#fff', borderDash: [3,3], borderWidth: 2, pointRadius: 2.5, pointHoverRadius: 6, tension: 0.18 },
+            { type: 'scatter', label: 'Extra Payment', data: markers, parsing: false, yAxisID: 'y', showLine: false, pointRadius: 5, pointHoverRadius: 7, borderColor: '#fff', backgroundColor: '#fff' }
+          ]},
+          options: {
+            maintainAspectRatio: false, responsive: true, animation: { duration: 250 },
+            plugins: {
+              legend: { display: true, labels: { color: '#e5e7eb' } },
+              tooltip: { callbacks: { label: (ctx) => {
+                const ds = ctx.dataset.label; const i = ctx.dataIndex;
+                if (ds === 'Extra Payment') { const raw = ctx.raw || {}; const parts = [\`Extra: −\${fmtCurrency(raw.amount||0)}\`]; if (raw.date) parts.push(\`on \${raw.date}\`); parts.push(\`bal → \${fmtCurrency(ctx.parsed.y)}\`); return parts.join(' '); }
+                if (lastSim && ds === 'Projected Balance') { const s = lastSim.starts[i] ?? 0, I = lastSim.interests[i] ?? 0, P = lastSim.regPaid[i] ?? 0, X = lastSim.monthExtras[i] ?? 0, E = lastSim.balances[i] ?? 0; return [\`Month \${i+1}\`, \`Start: \${fmtCurrency(s)}\`, \`Interest: \${fmtCurrency(I)}\`, \`Payment: \${fmtCurrency(P)}\`, \`Extra: \${fmtCurrency(X)}\`, \`End: \${fmtCurrency(E)}\`]; }
+                return \`\${ds}: \${fmtCurrency(ctx.parsed.y)}\`; } } },
+              title: { display: true, text: 'Credit Card Balance Projection', color: '#e5e7eb', font: { weight: '700', size: 16 } }
+            },
+            scales: {
+              x: { grid: { color: 'rgba(255,255,255,0.10)' }, ticks: { color: '#9ca3af' } },
+              y: { grid: { color: 'rgba(255,255,255,0.10)' }, ticks: { color: '#9ca3af', callback: (v) => fmtCurrency(v) } },
+              y1:{ position:'right', grid:{ drawOnChartArea:false, color: 'rgba(255,255,255,0.10)' }, ticks:{ color:'#9ca3af', callback:(v)=>fmtCurrency(v)} }
+            }
+          }
+        });
+        requestAnimationFrame(()=> chart?.resize());
+      } catch (err) {
+        console.warn('Chart.js render error, using fallback', err);
+        drawFallback(sim);
+      }
+    }
+
+    function drawFallback(sim){
+      $("notice").classList.add('show');
+      const canvas = $("chart"); const c = canvas.getContext('2d');
+      const w = canvas.clientWidth || canvas.width; const h = canvas.clientHeight || canvas.height; canvas.width = w; canvas.height = h;
+      const labels = sim?.labels || []; const balances = sim?.balances || []; const interests = sim?.interests || []; const markers = sim?.markers || [];
+      const padL = 56, padR = 56, padT = 24, padB = 36; const plotW = w - padL - padR; const plotH = h - padT - padB;
+      const maxBal = Math.max(...balances, 1); const maxInt = Math.max(...interests, 1); const n = Math.max(labels.length - 1, 1);
+      const xOf = i => padL + (i / n) * plotW; const yLeft = v => padT + (1 - v / maxBal) * plotH; const yRight = v => padT + (1 - v / maxInt) * plotH;
+      c.clearRect(0,0,w,h);
+      c.strokeStyle = '#fff'; c.lineWidth = 4; c.strokeRect(2,2,w-4,h-4);
+      c.fillStyle = 'rgba(255,255,255,0.03)'; c.fillRect(padL, padT, plotW, plotH);
+      c.strokeStyle = 'rgba(255,255,255,0.10)'; c.lineWidth = 1; c.beginPath(); c.moveTo(padL, padT); c.lineTo(padL, padT+plotH); c.lineTo(padL+plotW, padT+plotH); c.stroke();
+      c.strokeStyle = '#fff'; c.lineWidth = 2; c.setLineDash([3,3]); c.beginPath(); balances.forEach((v,i)=>{ const x=xOf(i), y=yLeft(v); if(i===0) c.moveTo(x,y); else c.lineTo(x,y); }); c.stroke();
+      c.setLineDash([]); c.fillStyle = '#fff'; balances.forEach((v,i)=>{ const x=xOf(i), y=yLeft(v); c.beginPath(); c.arc(x,y,2.5,0,Math.PI*2); c.fill(); });
+      c.strokeStyle = '#fff'; c.lineWidth = 2; c.setLineDash([3,3]); c.beginPath(); interests.forEach((v,i)=>{ const x=xOf(i), y=yRight(v); if(i===0) c.moveTo(x,y); else c.lineTo(x,y); }); c.stroke(); c.setLineDash([]);
+      c.fillStyle = '#fff'; markers.forEach(m=>{ const i = Math.min(Math.max(+m.x,0), labels.length-1); const x=xOf(i); const y=yLeft(m.y); c.beginPath(); c.arc(x,y,5,0,Math.PI*2); c.fill(); });
+    }
+
+    // Details table
+    function renderTable(sim){
+      const tb = $("tableBody"); if (!sim) { tb.innerHTML = ''; return; }
+      const rows = [];
+      for(let i=0;i<sim.labels.length;i++){
+        rows.push(\`<tr>
+          <td>M\${i+1}</td>
+          <td class="num">\${fmtCurrency(sim.starts[i]||0)}</td>
+          <td class="num">\${fmtCurrency(sim.interests[i]||0)}</td>
+          <td class="num">\${fmtCurrency(sim.regPaid[i]||0)}</td>
+          <td class="num">\${fmtCurrency(sim.monthExtras[i]||0)}</td>
+          <td class="num">\${fmtCurrency(sim.balances[i]||0)}</td>
+        </tr>\`);
+      }
+      tb.innerHTML = rows.join('');
+    }
+
+    // CSV helpers for table
+    function tableCSV(sim){
+      const rows = [['Month','Start','Interest','Payment','Extra','End']];
+      for (let i=0;i<sim.labels.length;i++) rows.push([\`M\${i+1}\`, (sim.starts[i]||0).toFixed(2), (sim.interests[i]||0).toFixed(2), (sim.regPaid[i]||0).toFixed(2), (sim.monthExtras[i]||0).toFixed(2), (sim.balances[i]||0).toFixed(2)]);
+      return rows.map(r=>r.join(',')).join('\\n');
+    }
+
+    // Orchestration
+    function update() {
+      const balance = clamp($("balance").value, 0, 1e9);
+      const apr = clamp($("apr").value, 0, 100);
+      const payment = clamp($("payment").value, 0, 1e8);
+      const horizon = clamp($("horizon").value, 1, 600);
+
+      const sim = simulate(balance, apr, payment, 600, horizon);
+      buildChart(sim.labels, sim.balances, sim.interests, sim.markers);
+      renderTable(sim);
+
+      $("mInterest").textContent = fmtCurrency(sim.totalInterest);
+      if (sim.paidOffAt !== null) {
+        const months = sim.paidOffAt; const years = Math.floor(months / 12); const rem = months % 12; const parts = []; if (years) parts.push(\`\${years} yr\${years>1?'s':''}\`); if (rem) parts.push(\`\${rem} mo\`);
+        const payoffText = sim.payoffDate ? \`\${parts.join(' ')} (by \${sim.payoffDate.toLocaleDateString()})\` : \`\${parts.join(' ')}\`;
+        $("mPayoff").textContent = payoffText || \`\${months} mo\`;
+        $("mStatus").innerHTML = `<span class="badge ok">On track to $0</span>`;
+      } else {
+        $("mPayoff").textContent = 'Not within horizon';
+        if (sim.unpayable) { $("mStatus").innerHTML = `<span class="badge warn">Payment < monthly interest — increase payment</span>`; }
+        else { $("mStatus").innerHTML = `<span class="badge">Extend horizon to see full payoff</span>`; }
+      }
+    }
+
+    function exportCSV() { const sim = lastSim; if (!sim) return; const csv = tableCSV(sim); const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download='credit_card_projection.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
+    function copyCSV() { const sim = lastSim; if (!sim) return; const csv = tableCSV(sim); navigator.clipboard?.writeText(csv); }
+
+    function toggleFullscreen() { const card = $("chartCard"); if (!document.fullscreenElement) { card.requestFullscreen?.(); } else { document.exitFullscreen?.(); } setTimeout(() => { if (window.Chart) chart?.resize(); else update(); }, 120); }
+
+    ["balance"].forEach(id => { $(id).addEventListener('change', () => { const bal = Number($("balance").value) || 0; const payEl = $("payment"); if (!Number(payEl.value)) { payEl.value = (bal * 0.02).toFixed(2); } update(); }); });
+    ["apr","payment","horizon"].forEach(id => $(id).addEventListener('change', update));
+
+    $("simulateBtn").addEventListener('click', update);
+    $("resetBtn").addEventListener('click', () => { $("balance").value = 5000; $("apr").value = 19.99; $("payment").value = 220; $("horizon").value = 240; events = []; renderEventsList(); update(); });
+    $("csvBtn").addEventListener('click', exportCSV);
+    $("fullscreenBtn").addEventListener('click', toggleFullscreen);
+    $("addEventBtn").addEventListener('click', addEventFromUI);
+    $("copyTableBtn").addEventListener('click', copyCSV);
+    $("downloadTableBtn").addEventListener('click', exportCSV);
+
+    // Kickoff
+    document.addEventListener('DOMContentLoaded', () => {
+      $("eventDate").value = toISODate(START_DATE);
+      renderEventsList();
+      update();
+      requestAnimationFrame(update);
+      setTimeout(update, 120);
+    });
+
+    window.addEventListener('resize', () => { if (window.Chart) chart?.resize(); else update(); });
+    document.addEventListener('fullscreenchange', () => setTimeout(() => { if (window.Chart) chart?.resize(); else update(); }, 120));
+  </script>
+</body>
+</html>
